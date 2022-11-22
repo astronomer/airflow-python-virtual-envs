@@ -1,4 +1,4 @@
-FROM quay.io/astronomer/astro-runtime:6.0.3
+FROM quay.io/astronomer/astro-runtime:6.0.4
 
 ##### Docker Customizations below this line #####
 
@@ -17,5 +17,10 @@ RUN curl https://pyenv.run | bash  && \
     pyenv virtualenv 3.8.14 snowpark_env && \
     pyenv activate snowpark_env && \
     pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r snowpark_requirements.txt && \
-    source secrets_manager.env
+    pip install --no-cache-dir -r snowpark_requirements.txt
+
+    ## if you are using an external secrets manager use
+    # source secrets_manager.env 
+
+# for the Pythonvirtualenvoperator
+RUN pyenv global 3.8.14

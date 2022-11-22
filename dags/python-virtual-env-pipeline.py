@@ -4,21 +4,28 @@ from airflow.decorators import task
 import logging
 from pprint import pprint
 import pendulum
+import os
 
 log = logging.getLogger('airflow.task')
 
 with DAG(
-    dag_id='external-python-pipeline',
+    dag_id='python-virtual-env-pipeline',
     start_date=pendulum.datetime(2022, 10, 10, tz="UTC"),
     schedule=None,
     catchup=False,
-    tags=['pyvenv', 'ExternalPythonOperator']
+    tags=['pyvenv', 'PythonVirtualenvOperator']
 ):
 
-    @task.external_python(
-        python='/home/astro/.pyenv/versions/snowpark_env/bin/python'
+    @task.virtualenv(
+        task_id="virtualenv_python",
+        python_version="3.8.14",
+        requirements=[
+            "snowflake-snowpark-python[pandas]",
+            "boto3"
+        ],
+        system_site_packages=False
     )
-    def external_python_operator_task():
+    def python_virtual_env_operator_task():
 
         # packages used within the virtual environment have to be imported here
         import os
@@ -48,4 +55,4 @@ with DAG(
         print(df.collect())
         session.close()
 
-    external_python_operator_task()
+    python_virtual_env_operator_task()
