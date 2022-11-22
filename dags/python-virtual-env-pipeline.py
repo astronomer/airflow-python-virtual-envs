@@ -23,7 +23,7 @@ with DAG(
             "snowflake-snowpark-python[pandas]",
             "boto3"
         ],
-        system_site_packages=False
+        system_site_packages=True
     )
     def python_virtual_env_operator_task():
 
