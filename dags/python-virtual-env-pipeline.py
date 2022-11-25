@@ -13,15 +13,14 @@ with DAG(
     start_date=pendulum.datetime(2022, 10, 10, tz="UTC"),
     schedule=None,
     catchup=False,
-    tags=['pyvenv', 'PythonVirtualenvOperator']
+    tags=['pyvenv', 'PythonVirtualEnvOperator']
 ):
 
     @task.virtualenv(
         task_id="virtualenv_python",
         python_version="3.8.14",
         requirements=[
-            "snowflake-snowpark-python[pandas]",
-            "boto3"
+            "snowflake-snowpark-python[pandas]"
         ],
         system_site_packages=True
     )
@@ -51,7 +50,6 @@ with DAG(
         }
         session = Session.builder.configs(connection_parameters).create()
         df = session.sql('select avg(reps_upper), avg(reps_lower) from dog_intelligence;')
-        print(df)
         print(df.collect())
         session.close()
 
