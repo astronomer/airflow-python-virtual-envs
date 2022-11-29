@@ -1,10 +1,11 @@
-FROM quay.io/astronomer/astro-runtime:6.0.3
+FROM quay.io/astronomer/astro-runtime:6.0.4
 
 ##### Docker Customizations below this line #####
 
 ## this is the default directory where pyenv will be installed, you can chose a different path as well
 ENV PYENV_ROOT="/home/astro/.pyenv" 
-ENV PATH=${PYENV_ROOT}/bin:${PATH}
+# it is important to add the folder where the python version will be installed to PATH in order to retrieve it in the PythonVirtualEnvOperator
+ENV PATH=${PYENV_ROOT}/bin:/home/astro/.pyenv/versions/3.8.14/bin:${PATH}
 
 ## if you ever want to check your dependency conflicts for extra packages that you may require for your venv, this requires you to install pip-tools
 # RUN pip-compile -h
@@ -17,5 +18,7 @@ RUN curl https://pyenv.run | bash  && \
     pyenv virtualenv 3.8.14 snowpark_env && \
     pyenv activate snowpark_env && \
     pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r snowpark_requirements.txt && \
-    source secrets_manager.env
+    pip install --no-cache-dir -r snowpark_requirements.txt
+
+    ## if you are using an external secrets manager use
+    # source secrets_manager.env 
