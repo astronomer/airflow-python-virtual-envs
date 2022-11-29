@@ -1,69 +1,50 @@
-from __future__ import annotations
-
-import logging
-import os
-import sys
-import tempfile
-import time
-import shutil
-from pprint import pprint
-
-import pendulum
-
 from airflow import DAG
 from airflow.decorators import task
+import pendulum
 
-log = logging.getLogger(__name__)
+with DAG(
+    dag_id='external-python-pipeline',
+    start_date=pendulum.datetime(2022, 10, 10, tz="UTC"),
+    schedule=None,
+    catchup=False,
+    tags=['pyvenv', 'ExternalPythonOperator']
+):
 
-PYTHON = sys.executable
+    @task
+    def upstream_task():
+        return "dog_intelligence"
 
-BASE_DIR = tempfile.gettempdir()
+    @task.external_python(
+        python='/home/astro/.pyenv/versions/snowpark_env/bin/python'
+    )
+    def external_python_operator_task(table_name):
 
-with DAG('py_virtual_env', schedule_interval=None, start_date=pendulum.datetime(2022, 10, 10, tz="UTC"), catchup=False, tags=['pythonvirtualenv']) as dag:
-    
-    @task(task_id="print_the_context")
-    def print_context(ds=None, **kwargs):
-        """Print the Airflow context and ds variable from the context."""
-        pprint(kwargs)
-        print(ds)
-        return 'Whatever you return gets printed in the logs'
-
-    @task.external_python(task_id="external_python", python='/home/astro/.pyenv/versions/snowpark_env/bin/python')
-    def callable_external_python():
-        from time import sleep
+        # packages used within the virtual environment have to be imported here
+        import os
         import pkg_resources
         from snowflake.snowpark import Session
 
-        import boto3
-        import json
-        
-        ## Checking for the correct venv packages	
-        installed_packages = pkg_resources.working_set
-        installed_packages_list = sorted(["%s==%s" % (i.key, i.version)
-                for i in installed_packages])
-        print(installed_packages_list)
-
-        ssm = boto3.client('ssm', region_name='us-east-2')
-        parameter = ssm.get_parameter(Name='/airflow/connections/snowflake/', WithDecryption=True)
-        conn = json.loads(parameter['Parameter']['Value'])
-
+        # connection parameters are stored as variables in .env
         connection_parameters = {
-            "account": conn['extra']['account'],
-            "user": conn['login'],
-            "password": conn['password'],
-            "role": conn['extra']['role'],
-            "warehouse": conn['extra']['warehouse'],
-            "database": conn['extra']['database'],
-            "schema": conn['schema'],
-            "region": conn['extra']['region']
+            "account": os.environ['SNOWFLAKE_ACCOUNT'],
+            "user": os.environ['SNOWFLAKE_USER'],
+            "password": os.environ['SNOWFLAKE_PASSWORD'],
+            "role": os.environ['SNOWFLAKE_ROLE'],
+            "warehouse": os.environ['SNOWFLAKE_WAREHOUSE'],
+            "database": os.environ['SNOWFLAKE_DATABASE'],
+            "schema": os.environ['SNOWFLAKE_SCHEMA'],
+            "region": os.environ['SNOWFLAKE_REGION']
         }
         session = Session.builder.configs(connection_parameters).create()
-        df = session.sql('select avg(reps_upper), avg(reps_lower) from dog_intelligence;')
-        print(df)
-        print(df.collect())
+        df = session.sql(f'select avg(reps_upper), avg(reps_lower) from {table_name};')
+        result = str(df.collect()[0])
+        print(result)
         session.close()
+        return result
 
-    task_print = print_context()
-    task_external_python = callable_external_python()
+    @task
+    def downstream_task(query_output):
+        return "Snowpark results: " + f"{query_output}"
 
-    task_print >> task_external_python
+
+    downstream_task(external_python_operator_task(upstream_task()))
